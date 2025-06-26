@@ -30,15 +30,15 @@ BUTTON_COOLDOWN = 5    # Seconds for button cooldown
 # This dictionary makes the service roles much easier to manage.
 # Format: "internal_name": ["Button Label", "Button Emoji", Role_ID]
 SERVICE_ROLES = {
-    "facebook":  ["Facebook",  "�", 1387742165681180754],
-    "discord":   ["Discord",   "🇩", 1387742348175216720],
-    "instagram": ["Instagram", "🇮", 1387735712874500096],
-    "twitter":   ["Twitter",   "🇹", 1387756089864486942],
-    "tiktok":    ["TikTok",    "⏰", 1387756237566906488],
-    "twitch":    ["Twitch",    "🎮", 1387756062169366718],
-    "snapchat":  ["Snapchat",  "👻", 1387755991243952229],
-    "youtube":   ["YouTube",   "🎥", 1387742474533077084],
-    "spotify":   ["Spotify",   "🎵", 1387756124165505065],
+    "facebook":  ["Facebook",  "<:Facebook:1387750761181610054>", 1387742165681180754],
+    "discord":   ["Discord",   "<:discord_new:1387750758774214816>", 1387742348175216720],
+    "instagram": ["Instagram", "<:instagram:1387473397553958923>", 1387735712874500096],
+    "twitter":   ["Twitter",   "<:twitter:1387750022980042962>", 1387756089864486942],
+    "tiktok":    ["TikTok",    "<:ticktock:1387750017242103900>", 1387756237566906488],
+    "twitch":    ["Twitch",    "<:twitch:1387750756400107591>", 1387756062169366718],
+    "snapchat":  ["Snapchat",  "<:snapchat:1387750764344250458>", 1387755991243952229],
+    "youtube":   ["YouTube",   "<:Youtube:1387754175613370368>", 1387742474533077084],
+    "spotify":   ["Spotify",   "<:Spotify:1387754178478346343>", 1387756124165505065],
 }
 
 
