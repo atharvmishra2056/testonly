@@ -28,7 +28,7 @@ BUTTON_COOLDOWN = 5    # Seconds for button cooldown
 # This dictionary makes the service roles much easier to manage.
 # Format: "internal_name": ["Button Label", "Button Emoji", Role_ID]
 SERVICE_ROLES = {
-    "facebook":  ["Facebook",  "🇫", 1387742165681180754],
+    "facebook":  ["Facebook",  ":Facebook:", 1387742165681180754],
     "discord":   ["Discord",   "🇩", 1387742348175216720],
     "instagram": ["Instagram", "🇮", 1387735712874500096],
     "twitter":   ["Twitter",   "🇹", 1387756089864486942],
