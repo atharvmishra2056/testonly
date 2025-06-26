@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ui import View, Button, Select
+from discord.ui import View, Button
 import os
 from flask import Flask
 from threading import Thread
@@ -90,30 +90,6 @@ class VerifyView(View):
             await interaction.followup.send("CAPTCHA timed out. Try again.", ephemeral=True)
         finally:
             captcha_sessions.pop(member.id, None)
-
-class RoleSelect(Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(label="Buyer", description="Access to buy services", custom_id="role_select_buyer"),
-            discord.SelectOption(label="Seller", description="Sell your services", custom_id="role_select_seller")
-        ]
-        super().__init__(placeholder="Choose a role...", min_values=1, max_values=1, options=options, custom_id="role_select_kuzzmarket")
-
-    async def callback(self, interaction):
-        role_name = self.values[0]
-        role = discord.utils.get(interaction.guild.roles, name=role_name)
-        if not role:
-            role = await interaction.guild.create_role(name=role_name)
-        if role not in interaction.user.roles:
-            await interaction.user.add_roles(role)
-            await interaction.response.send_message(f"Assigned {role_name} role!", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"You already have {role_name}!", ephemeral=True)
-
-class MarketplaceView(View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.add_item(RoleSelect())
 
 class ServiceView(View):
     def __init__(self):
@@ -226,12 +202,8 @@ async def on_ready():
     print(f'Logged in as {bot.user}!')
     await bot.change_presence(activity=discord.Game(name="KuzzMarket | /help"))
     bot.add_view(VerifyView())
-    bot.add_view(MarketplaceView())
     bot.add_view(ServiceView())
-    channel = bot.get_channel(SERVICE_CHANNEL_ID)
-    if channel:
-        embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
-        await channel.send(embed=embed, view=ServiceView())
+    print(f"Bot ready - Service channel ID: {SERVICE_CHANNEL_ID}")
 
 @bot.event
 async def on_member_join(member):
@@ -311,6 +283,17 @@ async def clearverify(ctx):
     else:
         await ctx.send("Verify channel not found!")
 
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def sendservices(ctx):
+    channel = bot.get_channel(SERVICE_CHANNEL_ID)
+    if channel:
+        embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
+        await channel.send(embed=embed, view=ServiceView())
+        await ctx.send("Service message sent to the service channel!")
+    else:
+        await ctx.send("Service channel not found or bot lacks permission!")
+
 # Keep slash commands
 @bot.slash_command(name="createrole", description="Create a custom role (Mods only)", guild_ids=[GUILD_ID])
 @commands.has_role(MOD_ROLE_NAME)
@@ -323,14 +306,6 @@ async def createrole_slash(ctx, name: str, color: str = "0x000000"):
         await ctx.respond("Invalid hex color! Use 0xRRGGBB.", ephemeral=True)
     except Exception as e:
         await ctx.respond(f"Error: {e}", ephemeral=True)
-
-@bot.slash_command(name="services", description="View marketplace services", guild_ids=[GUILD_ID])
-async def services(ctx):
-    embed = discord.Embed(title="🛒 KuzzMarket Services", description="Professional growth services!", color=discord.Color.gold())
-    embed.add_field(name="Instagram Likes", value="500 Likes - $5", inline=True)
-    embed.add_field(name="YouTube Subs", value="100 Subs - $10", inline=True)
-    embed.add_field(name="Custom", value="Contact Sellers in #🛒 | Discord", inline=True)
-    await ctx.respond(embed=embed, view=MarketplaceView())
 
 @bot.slash_command(name="sendverify", description="Send verification message (Admins only)", guild_ids=[GUILD_ID])
 @commands.has_permissions(administrator=True)
@@ -362,6 +337,18 @@ async def clear_verify_channel(ctx):
         await ctx.followup.send(f"Cleared {count} messages!", ephemeral=True)
     else:
         await ctx.followup.send("Verify channel not found!", ephemeral=True)
+
+@bot.slash_command(name="sendservices", description="Send service message (Admins only)", guild_ids=[GUILD_ID])
+@commands.has_permissions(administrator=True)
+async def send_services_message(ctx):
+    await ctx.defer(ephemeral=True)
+    channel = bot.get_channel(SERVICE_CHANNEL_ID)
+    if channel:
+        embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
+        await channel.send(embed=embed, view=ServiceView())
+        await ctx.followup.send("Service message sent to the service channel!", ephemeral=True)
+    else:
+        await ctx.followup.send("Service channel not found or bot lacks permission!", ephemeral=True)
 
 # Run bot
 try:
