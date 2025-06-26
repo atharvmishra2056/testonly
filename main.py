@@ -209,6 +209,10 @@ async def clear_verify_channel(ctx):
     else:
         await ctx.followup.send("Verify channel not found!", ephemeral=True)
 
+@bot.slash_command(name="pingbot", description="Keep bot active", guild_ids=[GUILD_ID])
+async def pingbot(ctx):
+    await ctx.respond("Bot is active! 🏓", ephemeral=True)
+
 # Run bot
 try:
     token = os.environ['DISCORD_TOKEN']
