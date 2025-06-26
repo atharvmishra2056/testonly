@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ui import View, Button, Select, Modal, TextInput
+from discord.ui import View, Button, Select
 import os
 from flask import Flask
 from threading import Thread
@@ -207,7 +207,131 @@ async def clearverify(ctx):
     else:
         await ctx.send("Verify channel not found!")
 
-# Custom Role Button Command with Select Menu
+# Custom Role Button Command with Wizard Approach
+class CustomRoleView(View):
+    def __init__(self, ctx, step=1, data=None):
+        super().__init__(timeout=300)
+        self.ctx = ctx
+        self.step = step
+        self.data = data or {}
+        self.update_items()
+
+    def update_items(self):
+        self.clear_items()
+        if self.step == 1:
+            self.add_item(Button(label="Next: Title", style=discord.ButtonStyle.primary, custom_id="next_title"))
+        elif self.step == 2:
+            self.add_item(Button(label="Next: Message", style=discord.ButtonStyle.primary, custom_id="next_message"))
+        elif self.step == 3:
+            self.add_item(Button(label="Next: Channel", style=discord.ButtonStyle.primary, custom_id="next_channel"))
+        elif self.step == 4:
+            self.add_item(Button(label="Next: Button Label", style=discord.ButtonStyle.primary, custom_id="next_button_label"))
+        elif self.step == 5:
+            self.add_item(Button(label="Next: Role ID", style=discord.ButtonStyle.primary, custom_id="next_role_id"))
+        elif self.step == 6:
+            self.add_item(Button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm"))
+            self.add_item(Button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel"))
+
+    async def on_timeout(self):
+        await self.ctx.send("Timeout! Please start again with `wolf customrole`.", delete_after=5)
+
+    async def interaction_check(self, interaction):
+        return interaction.user == self.ctx.author
+
+    async def callback(self, interaction):
+        await interaction.response.defer()
+        if self.step == 1:
+            await self.ctx.send("Enter the title for the embed:")
+        elif self.step == 2:
+            await self.ctx.send("Enter the message content:")
+        elif self.step == 3:
+            await self.ctx.send("Enter the channel ID:")
+        elif self.step == 4:
+            await self.ctx.send("Enter the button label:")
+        elif self.step == 5:
+            await self.ctx.send("Enter the role ID:")
+
+    @discord.ui.button(label="Next: Title", style=discord.ButtonStyle.primary, custom_id="next_title")
+    async def next_title(self, button, interaction):
+        def check(m):
+            return m.author == self.ctx.author and m.channel == self.ctx.channel
+        msg = await bot.wait_for("message", check=check, timeout=60)
+        self.data["title"] = msg.content
+        await msg.delete()
+        self.step = 2
+        self.update_items()
+        await interaction.message.edit(view=self)
+        await self.callback(interaction)
+
+    @discord.ui.button(label="Next: Message", style=discord.ButtonStyle.primary, custom_id="next_message")
+    async def next_message(self, button, interaction):
+        def check(m):
+            return m.author == self.ctx.author and m.channel == self.ctx.channel
+        msg = await bot.wait_for("message", check=check, timeout=60)
+        self.data["message"] = msg.content
+        await msg.delete()
+        self.step = 3
+        self.update_items()
+        await interaction.message.edit(view=self)
+        await self.callback(interaction)
+
+    @discord.ui.button(label="Next: Channel", style=discord.ButtonStyle.primary, custom_id="next_channel")
+    async def next_channel(self, button, interaction):
+        def check(m):
+            return m.author == self.ctx.author and m.channel == self.ctx.channel
+        msg = await bot.wait_for("message", check=check, timeout=60)
+        self.data["channel_id"] = int(msg.content)
+        await msg.delete()
+        self.step = 4
+        self.update_items()
+        await interaction.message.edit(view=self)
+        await self.callback(interaction)
+
+    @discord.ui.button(label="Next: Button Label", style=discord.ButtonStyle.primary, custom_id="next_button_label")
+    async def next_button_label(self, button, interaction):
+        def check(m):
+            return m.author == self.ctx.author and m.channel == self.ctx.channel
+        msg = await bot.wait_for("message", check=check, timeout=60)
+        self.data["button_label"] = msg.content
+        await msg.delete()
+        self.step = 5
+        self.update_items()
+        await interaction.message.edit(view=self)
+        await self.callback(interaction)
+
+    @discord.ui.button(label="Next: Role ID", style=discord.ButtonStyle.primary, custom_id="next_role_id")
+    async def next_role_id(self, button, interaction):
+        def check(m):
+            return m.author == self.ctx.author and m.channel == self.ctx.channel
+        msg = await bot.wait_for("message", check=check, timeout=60)
+        self.data["role_id"] = int(msg.content)
+        await msg.delete()
+        self.step = 6
+        self.update_items()
+        await interaction.message.edit(view=self)
+        await self.callback(interaction)
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm")
+    async def confirm(self, button, interaction):
+        channel = bot.get_channel(self.data["channel_id"])
+        if not channel:
+            await interaction.response.send_message("Invalid channel ID!", ephemeral=True)
+            return
+        custom_id = f"custom_role_{random.randint(1000, 9999)}"
+        view = discord.ui.View()
+        button = discord.ui.Button(label=self.data["button_label"], custom_id=custom_id, style=discord.ButtonStyle.primary)
+        view.add_item(button)
+        embed = discord.Embed(title=self.data["title"], description=self.data["message"], color=discord.Color.blue())
+        msg = await channel.send(embed=embed, view=view)
+        custom_roles[msg.id] = {"title": self.data["title"], "message": self.data["message"], "channel_id": self.data["channel_id"], "buttons": {custom_id: self.data["role_id"]}}
+        await interaction.response.send_message("Role button created!", ephemeral=True)
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel")
+    async def cancel(self, button, interaction):
+        await interaction.response.send_message("Cancelled!", ephemeral=True)
+        self.stop()
+
 class CustomRoleSelect(Select):
     def __init__(self, action):
         options = [discord.SelectOption(label=config["title"], value=str(msg_id), description=config["message"][:50]) for msg_id, config in custom_roles.items()]
@@ -217,7 +341,7 @@ class CustomRoleSelect(Select):
     async def callback(self, interaction):
         msg_id = int(self.values[0])
         if self.action == "edit":
-            await interaction.response.send_modal(CustomRoleModal("edit", msg_id))
+            await interaction.response.send_message("Edit not fully supported yet—use add to recreate.", ephemeral=True)
         elif self.action == "remove":
             if msg_id in custom_roles:
                 msg = await bot.get_channel(custom_roles[msg_id]["channel_id"]).fetch_message(msg_id)
@@ -225,77 +349,11 @@ class CustomRoleSelect(Select):
                 del custom_roles[msg_id]
                 await interaction.response.send_message("Role message removed!", ephemeral=True)
 
-class CustomRoleModal(Modal, title="Custom Role Setup"):
-    title_input = TextInput(label="Title", placeholder="Enter embed title", required=True)
-    message_input = TextInput(label="Message", placeholder="Enter message content", required=True, style=discord.TextStyle.paragraph)
-    channel_input = TextInput(label="Channel ID", placeholder="Enter channel ID", required=True)
-    button_label = TextInput(label="Button Label", placeholder="Enter button label", required=True)
-    role_id = TextInput(label="Role ID", placeholder="Enter role ID", required=True)
-
-    def __init__(self, action, msg_id=None):
-        super().__init__(title=f"Custom Role - {action}")
-        self.action = action
-        self.msg_id = msg_id
-        if msg_id and msg_id in custom_roles:
-            self.title_input.default = custom_roles[msg_id]["title"]
-            self.message_input.default = custom_roles[msg_id]["message"]
-            self.channel_input.default = str(custom_roles[msg_id]["channel_id"])
-
-    async def on_submit(self, interaction):
-        title = self.title_input.value
-        message = self.message_input.value
-        channel_id = int(self.channel_input.value)
-        button_label = self.button_label.value
-        role_id = int(self.role_id.value)
-
-        channel = bot.get_channel(channel_id)
-        if not channel:
-            await interaction.response.send_message("Invalid channel ID!", ephemeral=True)
-            return
-
-        custom_id = f"custom_role_{random.randint(1000, 9999)}"
-        if self.action == "add":
-            view = discord.ui.View()
-            button = discord.ui.Button(label=button_label, custom_id=custom_id, style=discord.ButtonStyle.primary)
-            view.add_item(button)
-            embed = discord.Embed(title=title, description=message, color=discord.Color.blue())
-            msg = await channel.send(embed=embed, view=view)
-            custom_roles[msg.id] = {"title": title, "message": message, "channel_id": channel_id, "buttons": {custom_id: role_id}}
-            await interaction.response.send_message("Role button added!", ephemeral=True)
-        elif self.action == "edit":
-            if self.msg_id in custom_roles:
-                custom_roles[self.msg_id]["title"] = title
-                custom_roles[self.msg_id]["message"] = message
-                msg = await bot.get_channel(custom_roles[self.msg_id]["channel_id"]).fetch_message(self.msg_id)
-                await msg.edit(embed=discord.Embed(title=title, description=message, color=discord.Color.blue()))
-                await interaction.response.send_message("Role button edited!", ephemeral=True)
-            else:
-                await interaction.response.send_message("Message not found!", ephemeral=True)
-
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def customrole(ctx):
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(label="Add", style=discord.ButtonStyle.green, custom_id="add_role"))
-    view.add_item(discord.ui.Button(label="Edit", style=discord.ButtonStyle.blurple, custom_id="edit_role"))
-    view.add_item(discord.ui.Button(label="Remove", style=discord.ButtonStyle.red, custom_id="remove_role"))
-    await ctx.send("Select an action:", view=view)
-
-    def check(interaction):
-        return interaction.user == ctx.author and interaction.message.id == view.message.id
-
-    try:
-        interaction = await bot.wait_for("button_click", check=check, timeout=60)
-        action = interaction.custom_id.split("_")[0]
-        if action in ["edit", "remove"] and custom_roles:
-            select = CustomRoleSelect(action)
-            view = discord.ui.View()
-            view.add_item(select)
-            await interaction.response.send_message(f"Select a {action} role message:", view=view, ephemeral=True)
-        else:
-            await interaction.response.send_modal(CustomRoleModal(action))
-    except asyncio.TimeoutError:
-        await ctx.send("Timeout! Please try again.", delete_after=5)
+    view = CustomRoleView(ctx)
+    await ctx.send("Starting custom role setup. Click 'Next: Title' to begin:", view=view)
 
 @bot.event
 async def on_button_click(interaction):
