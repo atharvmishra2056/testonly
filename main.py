@@ -91,25 +91,50 @@ class VerifyView(View):
         finally:
             captcha_sessions.pop(member.id, None)
 
-class ServiceView(View):
+class RoleSelect(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Buyer", description="Access to buy services", custom_id="role_select_buyer"),
+            discord.SelectOption(label="Seller", description="Sell your services", custom_id="role_select_seller")
+        ]
+        super().__init__(placeholder="Choose a role...", min_values=1, max_values=1, options=options, custom_id="role_select_kuzzmarket")
+
+    async def callback(self, interaction):
+        role_name = self.values[0]
+        role = discord.utils.get(interaction.guild.roles, name=role_name)
+        if not role:
+            role = await interaction.guild.create_role(name=role_name)
+        if role not in interaction.user.roles:
+            await interaction.user.add_roles(role)
+            await interaction.response.send_message(f"Assigned {role_name} role!", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"You already have {role_name}!", ephemeral=True)
+
+class MarketplaceView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(Button(label="Facebook", emoji="🇫", custom_id="service_facebook", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Discord", emoji="🇩", custom_id="service_discord", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Instagram", emoji="🇮", custom_id="service_instagram", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Twitter", emoji="🇹", custom_id="service_twitter", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="TikTok", emoji="⏰", custom_id="service_tiktok", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Twitch", emoji="🎮", custom_id="service_twitch", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Snapchat", emoji="👻", custom_id="service_snapchat", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="YouTube", emoji="🎥", custom_id="service_youtube", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Spotify", emoji="🎵", custom_id="service_spotify", style=discord.ButtonStyle.primary))
+        self.add_item(RoleSelect())
+
+class ServiceView(View):
+    def __init__(self, unique_suffix):
+        super().__init__(timeout=None)
+        self.add_item(Button(label="Facebook", emoji="🇫", custom_id=f"service_facebook_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="Discord", emoji="🇩", custom_id=f"service_discord_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="Instagram", emoji="🇮", custom_id=f"service_instagram_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="Twitter", emoji="🇹", custom_id=f"service_twitter_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="TikTok", emoji="⏰", custom_id=f"service_tiktok_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="Twitch", emoji="🎮", custom_id=f"service_twitch_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="Snapchat", emoji="👻", custom_id=f"service_snapchat_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="YouTube", emoji="🎥", custom_id=f"service_youtube_{unique_suffix}", style=discord.ButtonStyle.primary))
+        self.add_item(Button(label="Spotify", emoji="🎵", custom_id=f"service_spotify_{unique_suffix}", style=discord.ButtonStyle.primary))
 
     async def interaction_check(self, interaction):
         return True
 
-    @discord.ui.button(label="Facebook", emoji="🇫", custom_id="service_facebook", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Facebook", emoji="🇫", custom_id="service_facebook_[unique]")
     async def facebook_button(self, button, interaction):
-        role_id = 1387742165681180754  # Replace with your Facebook role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387742165681180754  # Facebook role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -117,9 +142,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="Discord", emoji="🇩", custom_id="service_discord", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Discord", emoji="🇩", custom_id="service_discord_[unique]")
     async def discord_button(self, button, interaction):
-        role_id = 1387742348175216720  # Replace with your Discord role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387742348175216720  # Discord role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -127,9 +153,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="Instagram", emoji="🇮", custom_id="service_instagram", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Instagram", emoji="🇮", custom_id="service_instagram_[unique]")
     async def instagram_button(self, button, interaction):
-        role_id = 1387735712874500096  # Replace with your Instagram role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387735712874500096  # Instagram role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -137,9 +164,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="Twitter", emoji="🇹", custom_id="service_twitter", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Twitter", emoji="🇹", custom_id="service_twitter_[unique]")
     async def twitter_button(self, button, interaction):
-        role_id = 1387756089864486942  # Replace with your Twitter role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387756089864486942  # Twitter role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -147,9 +175,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="TikTok", emoji="⏰", custom_id="service_tiktok", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="TikTok", emoji="⏰", custom_id="service_tiktok_[unique]")
     async def tiktok_button(self, button, interaction):
-        role_id = 1387756237566906488  # Replace with your TikTok role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387756237566906488  # TikTok role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -157,9 +186,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="Twitch", emoji="🎮", custom_id="service_twitch", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Twitch", emoji="🎮", custom_id="service_twitch_[unique]")
     async def twitch_button(self, button, interaction):
-        role_id = 1387756062169366718  # Replace with your Twitch role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387756062169366718  # Twitch role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -167,9 +197,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="Snapchat", emoji="👻", custom_id="service_snapchat", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Snapchat", emoji="👻", custom_id="service_snapchat_[unique]")
     async def snapchat_button(self, button, interaction):
-        role_id = 1387755991243952229  # Replace with your Snapchat role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387755991243952229  # Snapchat role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -177,9 +208,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="YouTube", emoji="🎥", custom_id="service_youtube", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="YouTube", emoji="🎥", custom_id="service_youtube_[unique]")
     async def youtube_button(self, button, interaction):
-        role_id = 1387742474533077084  # Replace with your YouTube role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387742474533077084  # YouTube role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -187,9 +219,10 @@ class ServiceView(View):
         else:
             await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
 
-    @discord.ui.button(label="Spotify", emoji="🎵", custom_id="service_spotify", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Spotify", emoji="🎵", custom_id="service_spotify_[unique]")
     async def spotify_button(self, button, interaction):
-        role_id = 1387756124165505065  # Replace with your Spotify role ID
+        unique_suffix = interaction.custom_id.split('_')[-1]  # Extract suffix
+        role_id = 1387756124165505065  # Spotify role ID
         role = interaction.guild.get_role(role_id)
         if role and role not in interaction.user.roles:
             await interaction.user.add_roles(role)
@@ -202,7 +235,8 @@ async def on_ready():
     print(f'Logged in as {bot.user}!')
     await bot.change_presence(activity=discord.Game(name="KuzzMarket | /help"))
     bot.add_view(VerifyView())
-    bot.add_view(ServiceView())
+    bot.add_view(MarketplaceView())
+    bot.add_view(ServiceView(str(random.randint(1000, 9999))))  # Adding a default view with unique suffix
     print(f"Bot ready - Service channel ID: {SERVICE_CHANNEL_ID}")
 
 @bot.event
@@ -288,8 +322,10 @@ async def clearverify(ctx):
 async def sendservices(ctx):
     channel = bot.get_channel(SERVICE_CHANNEL_ID)
     if channel:
+        unique_suffix = str(random.randint(1000, 9999))  # Generate unique suffix
         embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
-        await channel.send(embed=embed, view=ServiceView())
+        view = ServiceView(unique_suffix)
+        await channel.send(embed=embed, view=view)
         await ctx.send("Service message sent to the service channel!")
     else:
         await ctx.send("Service channel not found or bot lacks permission!")
@@ -344,8 +380,10 @@ async def send_services_message(ctx):
     await ctx.defer(ephemeral=True)
     channel = bot.get_channel(SERVICE_CHANNEL_ID)
     if channel:
+        unique_suffix = str(random.randint(1000, 9999))  # Generate unique suffix
         embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
-        await channel.send(embed=embed, view=ServiceView())
+        view = ServiceView(unique_suffix)
+        await channel.send(embed=embed, view=view)
         await ctx.followup.send("Service message sent to the service channel!", ephemeral=True)
     else:
         await ctx.followup.send("Service channel not found or bot lacks permission!", ephemeral=True)
