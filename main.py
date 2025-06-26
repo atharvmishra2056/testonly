@@ -31,7 +31,7 @@ BUTTON_COOLDOWN = 5    # Seconds for button cooldown
 # Format: "internal_name": ["Button Label", "Button Emoji", Role_ID]
 SERVICE_ROLES = {
     "facebook":  ["Facebook",  "<:Facebook:1387750761181610054>", 1387742165681180754],
-    "discord":   ["Discord",   "<:discord_new:1387750758774214816>", 1387742348175216720],
+    "discord":   ["Discord",   "<:discord_new:1387781149723463790>", 1387742348175216720],
     "instagram": ["Instagram", "<:instagram:1387473397553958923>", 1387735712874500096],
     "twitter":   ["Twitter",   "<:twitter:1387750022980042962>", 1387756089864486942],
     "tiktok":    ["TikTok",    "<:ticktock:1387750017242103900>", 1387756237566906488],
