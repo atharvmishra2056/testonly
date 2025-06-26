@@ -236,7 +236,6 @@ async def on_ready():
     await bot.change_presence(activity=discord.Game(name="KuzzMarket | /help"))
     bot.add_view(VerifyView())
     bot.add_view(MarketplaceView())
-    bot.add_view(ServiceView(str(random.randint(1000, 9999))))  # Adding a default view with unique suffix
     print(f"Bot ready - Service channel ID: {SERVICE_CHANNEL_ID}")
 
 @bot.event
