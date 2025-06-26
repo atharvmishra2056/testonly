@@ -118,6 +118,7 @@ class MarketplaceView(View):
 class ServiceView(View):
     def __init__(self, unique_suffix):
         super().__init__(timeout=None)
+        self.timeout = 300  # Set a timeout of 5 minutes
         self.add_item(Button(label="Facebook", emoji="🇫", custom_id=f"service_facebook_{unique_suffix}", style=discord.ButtonStyle.primary))
         self.add_item(Button(label="Discord", emoji="🇩", custom_id=f"service_discord_{unique_suffix}", style=discord.ButtonStyle.primary))
         self.add_item(Button(label="Instagram", emoji="🇮", custom_id=f"service_instagram_{unique_suffix}", style=discord.ButtonStyle.primary))
@@ -321,6 +322,10 @@ async def clearverify(ctx):
 async def sendservices(ctx):
     channel = bot.get_channel(SERVICE_CHANNEL_ID)
     if channel:
+        # Clear any existing bot messages to avoid duplicates
+        async for message in channel.history(limit=10):
+            if message.author == bot.user:
+                await message.delete()
         unique_suffix = str(random.randint(1000, 9999))  # Generate unique suffix
         embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
         view = ServiceView(unique_suffix)
@@ -379,6 +384,10 @@ async def send_services_message(ctx):
     await ctx.defer(ephemeral=True)
     channel = bot.get_channel(SERVICE_CHANNEL_ID)
     if channel:
+        # Clear any existing bot messages to avoid duplicates
+        async for message in channel.history(limit=10):
+            if message.author == bot.user:
+                await message.delete()
         unique_suffix = str(random.randint(1000, 9999))  # Generate unique suffix
         embed = discord.Embed(title="🛒 Choose a Service", description="Click the button based on what service you want to buy:", color=discord.Color.gold())
         view = ServiceView(unique_suffix)
