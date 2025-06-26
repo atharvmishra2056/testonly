@@ -191,7 +191,7 @@ async def sendverify(ctx):
         await channel.send(embed=embed, view=VerifyView())
         await ctx.send("Verification message sent!")
     else:
-        await ctx.send("Verify channel not found!")
+        await ctx.send("Verify channel not failed!")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -239,77 +239,82 @@ class CustomRoleView(View):
         return interaction.user == self.ctx.author
 
     async def callback(self, interaction):
-        await interaction.response.defer()
-        if self.step == 1:
-            await self.ctx.send("Enter the title for the embed:")
-        elif self.step == 2:
-            await self.ctx.send("Enter the message content:")
-        elif self.step == 3:
-            await self.ctx.send("Enter the channel ID:")
-        elif self.step == 4:
-            await self.ctx.send("Enter the button label:")
-        elif self.step == 5:
-            await self.ctx.send("Enter the role ID:")
+        await interaction.response.send_message(f"Step {self.step}: Enter your input below (timeout: 120s)", ephemeral=True, delete_after=120)
 
     @discord.ui.button(label="Next: Title", style=discord.ButtonStyle.primary, custom_id="next_title")
     async def next_title(self, button, interaction):
         def check(m):
             return m.author == self.ctx.author and m.channel == self.ctx.channel
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        self.data["title"] = msg.content
-        await msg.delete()
-        self.step = 2
-        self.update_items()
-        await interaction.message.edit(view=self)
-        await self.callback(interaction)
+        try:
+            msg = await bot.wait_for("message", check=check, timeout=120)
+            self.data["title"] = msg.content
+            await msg.delete()
+            self.step = 2
+            self.update_items()
+            await interaction.followup.send("Next step: Message", ephemeral=True)
+            await self.callback(interaction)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Timeout! Please start again.", ephemeral=True)
 
     @discord.ui.button(label="Next: Message", style=discord.ButtonStyle.primary, custom_id="next_message")
     async def next_message(self, button, interaction):
         def check(m):
             return m.author == self.ctx.author and m.channel == self.ctx.channel
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        self.data["message"] = msg.content
-        await msg.delete()
-        self.step = 3
-        self.update_items()
-        await interaction.message.edit(view=self)
-        await self.callback(interaction)
+        try:
+            msg = await bot.wait_for("message", check=check, timeout=120)
+            self.data["message"] = msg.content
+            await msg.delete()
+            self.step = 3
+            self.update_items()
+            await interaction.followup.send("Next step: Channel ID", ephemeral=True)
+            await self.callback(interaction)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Timeout! Please start again.", ephemeral=True)
 
     @discord.ui.button(label="Next: Channel", style=discord.ButtonStyle.primary, custom_id="next_channel")
     async def next_channel(self, button, interaction):
         def check(m):
             return m.author == self.ctx.author and m.channel == self.ctx.channel
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        self.data["channel_id"] = int(msg.content)
-        await msg.delete()
-        self.step = 4
-        self.update_items()
-        await interaction.message.edit(view=self)
-        await self.callback(interaction)
+        try:
+            msg = await bot.wait_for("message", check=check, timeout=120)
+            self.data["channel_id"] = int(msg.content)
+            await msg.delete()
+            self.step = 4
+            self.update_items()
+            await interaction.followup.send("Next step: Button Label", ephemeral=True)
+            await self.callback(interaction)
+        except (asyncio.TimeoutError, ValueError):
+            await interaction.followup.send("Timeout or invalid input! Please start again.", ephemeral=True)
 
     @discord.ui.button(label="Next: Button Label", style=discord.ButtonStyle.primary, custom_id="next_button_label")
     async def next_button_label(self, button, interaction):
         def check(m):
             return m.author == self.ctx.author and m.channel == self.ctx.channel
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        self.data["button_label"] = msg.content
-        await msg.delete()
-        self.step = 5
-        self.update_items()
-        await interaction.message.edit(view=self)
-        await self.callback(interaction)
+        try:
+            msg = await bot.wait_for("message", check=check, timeout=120)
+            self.data["button_label"] = msg.content
+            await msg.delete()
+            self.step = 5
+            self.update_items()
+            await interaction.followup.send("Next step: Role ID", ephemeral=True)
+            await self.callback(interaction)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Timeout! Please start again.", ephemeral=True)
 
     @discord.ui.button(label="Next: Role ID", style=discord.ButtonStyle.primary, custom_id="next_role_id")
     async def next_role_id(self, button, interaction):
         def check(m):
             return m.author == self.ctx.author and m.channel == self.ctx.channel
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        self.data["role_id"] = int(msg.content)
-        await msg.delete()
-        self.step = 6
-        self.update_items()
-        await interaction.message.edit(view=self)
-        await self.callback(interaction)
+        try:
+            msg = await bot.wait_for("message", check=check, timeout=120)
+            self.data["role_id"] = int(msg.content)
+            await msg.delete()
+            self.step = 6
+            self.update_items()
+            await interaction.followup.send("Click 'Confirm' to finish or 'Cancel' to abort.", ephemeral=True)
+            await interaction.message.edit(view=self)
+        except (asyncio.TimeoutError, ValueError):
+            await interaction.followup.send("Timeout or invalid input! Please start again.", ephemeral=True)
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm")
     async def confirm(self, button, interaction):
