@@ -16,19 +16,21 @@ VERIFY_CHANNEL_ID = 1377883328526680065  # Verify Channel ID
 LOG_CHANNEL_ID = 1377883329755611280    # Logs Channel ID
 WELCOME_CHANNEL_ID = 1387419489586380972 # Welcome Channel ID
 SERVICE_CHANNEL_ID = 1387386391800975390 # Service Channel ID
+# FIX: Restored the missing GENERAL_CHANNEL_ID. My apologies for removing it.
+GENERAL_CHANNEL_ID = 1377883329503821841 # General Channel ID
 
 MOD_ROLE_NAME = "Moderator"
 MEMBER_ROLE_NAME = "KuzzMember"
 ACTIVE_MEMBER_ROLE_NAME = "Active Member"
 
 BAD_WORDS = ["fuck", "nigga"]  # Storing in lowercase for easier checking
-CAPTCHA_TIMEOUT = 180  # Seconds for CAPTCHA Modal
+CAPTCHA_TIMEOUT = 180  # Seconds for CAPTCHA
 BUTTON_COOLDOWN = 5    # Seconds for button cooldown
 
 # This dictionary makes the service roles much easier to manage.
 # Format: "internal_name": ["Button Label", "Button Emoji", Role_ID]
 SERVICE_ROLES = {
-    "facebook":  ["Facebook",  ":Facebook:", 1387742165681180754],
+    "facebook":  ["Facebook",  "�", 1387742165681180754],
     "discord":   ["Discord",   "🇩", 1387742348175216720],
     "instagram": ["Instagram", "🇮", 1387735712874500096],
     "twitter":   ["Twitter",   "🇹", 1387756089864486942],
@@ -69,7 +71,7 @@ button_cooldowns = {}
 xp_data = {} # Stores {'user_id': {'xp': 10, 'last_message_time': ...}}
 
 
-# --- MODALS (Modern way to get user text input) ---
+# --- MODALS & VERIFICATION FLOW VIEWS ---
 
 class CaptchaModal(Modal):
     def __init__(self, user_id):
@@ -87,7 +89,7 @@ class CaptchaModal(Modal):
         captcha_sessions.pop(self.user_id, None)
 
         if not correct_code or user_input != correct_code:
-            await interaction.followup.send("❌ Incorrect CAPTCHA. Please click the verify button and try again.", ephemeral=True)
+            await interaction.followup.send("❌ Incorrect CAPTCHA. Please try again.", ephemeral=True)
             return
 
         member = interaction.user
@@ -132,8 +134,25 @@ class CaptchaModal(Modal):
             await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True)
             print(f"Error during verification for {member.id}: {e}")
 
+# FIX: This new view is part of the solution to the "Unknown Interaction" error.
+# It separates showing the code from opening the input modal.
+class OpenCaptchaModalView(View):
+    def __init__(self, user_id):
+        super().__init__(timeout=CAPTCHA_TIMEOUT)
+        self.user_id = user_id
 
-# --- VIEWS (For Buttons and Select Menus) ---
+    @discord.ui.button(label="Enter Code", style=discord.ButtonStyle.blurple)
+    async def open_modal_button(self, button: Button, interaction: discord.Interaction):
+        # This interaction is from the "Enter Code" button, so we can safely respond with a modal.
+        modal = CaptchaModal(user_id=self.user_id)
+        await interaction.response.send_modal(modal)
+        self.stop() # Stop this view once the modal is opened.
+
+    async def on_timeout(self):
+        # Disable the button when the view times out.
+        for item in self.children:
+            item.disabled = True
+        # We can't easily edit the original message, but this prevents confusion.
 
 class VerifyView(View):
     def __init__(self):
@@ -143,54 +162,48 @@ class VerifyView(View):
     async def verify_button(self, button: Button, interaction: discord.Interaction):
         member = interaction.user
         
-        # Cooldown check
         last_click = button_cooldowns.get(member.id, 0)
         if time.time() < last_click + BUTTON_COOLDOWN:
             await interaction.response.send_message("Please wait a few seconds before trying again.", ephemeral=True, delete_after=5)
             return
         button_cooldowns[member.id] = time.time()
 
-        # Generate and store CAPTCHA
         captcha_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         captcha_sessions[member.id] = captcha_code
         
-        # Send the modal to the user
-        modal = CaptchaModal(user_id=member.id)
-        await interaction.response.send_modal(modal)
-        
-        # Send the captcha image in a followup ephemeral message
-        # NOTE: Using a simple embed here. For an image, you would use a library like Pillow.
+        # FIX: Reworked the verification flow to prevent the "Unknown Interaction" error.
+        # Step 1: Send a message with the code and a NEW button.
         embed = discord.Embed(
             title="Your CAPTCHA Code Is:",
             description=f"**{captcha_code}**",
             color=discord.Color.orange()
         )
-        embed.set_footer(text="Enter this code in the pop-up modal.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        embed.set_footer(text=f"Click 'Enter Code' below. You have {CAPTCHA_TIMEOUT} seconds.")
 
+        # Step 2: Respond with the embed and the view containing the "Enter Code" button.
+        # This is a single, valid response to the "Verify Now" click.
+        await interaction.response.send_message(
+            embed=embed,
+            view=OpenCaptchaModalView(user_id=member.id),
+            ephemeral=True
+        )
 
 class ServiceView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        # FIX: Loop through the SERVICE_ROLES dictionary to create buttons dynamically.
-        # This prevents duplicate buttons and makes the code much cleaner (DRY principle).
         for service_name, details in SERVICE_ROLES.items():
             label, emoji, role_id = details
             button = Button(
                 label=label,
                 emoji=emoji,
                 style=discord.ButtonStyle.primary,
-                custom_id=f"service_role_{service_name}" # Unique ID for each button
+                custom_id=f"service_role_{service_name}"
             )
-            # Assign the generic callback to each button
             button.callback = self.service_button_callback
             self.add_item(button)
 
     async def service_button_callback(self, interaction: discord.Interaction):
-        """A single callback to handle all service role buttons."""
         await interaction.response.defer(ephemeral=True)
-        
-        # Extract the service name from the custom_id (e.g., 'facebook')
         service_name = interaction.data['custom_id'].split('_')[-1]
         
         if service_name not in SERVICE_ROLES:
@@ -205,7 +218,6 @@ class ServiceView(View):
             await interaction.followup.send(f"The '{SERVICE_ROLES[service_name][0]}' role was not found. Please contact an admin.", ephemeral=True)
             return
 
-        # Toggle role
         if role in member.roles:
             await member.remove_roles(role)
             await interaction.followup.send(f"Removed the **{role.name}** role.", ephemeral=True)
@@ -237,7 +249,6 @@ async def on_message(message):
     if message.author == bot.user or message.author.bot:
         return
         
-    # --- Auto-Moderation ---
     content = message.content.lower()
     if any(word in content for word in BAD_WORDS):
         try:
@@ -247,40 +258,34 @@ async def on_message(message):
             print(f"Could not delete message or DM user {message.author.name} due to permissions.")
         except Exception as e:
             print(f"Error in auto-moderation: {e}")
-        return # Stop processing the message further
+        return
 
-    # --- XP System (with cooldown) ---
     user_id_str = str(message.author.id)
     current_time = time.time()
     
-    # Initialize user if not present
     if user_id_str not in xp_data:
         xp_data[user_id_str] = {'xp': 0, 'last_message_time': 0}
         
-    # Add XP only if cooldown has passed (e.g., 60 seconds)
     if current_time - xp_data[user_id_str]['last_message_time'] > 60:
         xp_data[user_id_str]['xp'] += 5
         xp_data[user_id_str]['last_message_time'] = current_time
         
-        # Check for level up
         if xp_data[user_id_str]['xp'] >= 100:
             role = discord.utils.get(message.guild.roles, name=ACTIVE_MEMBER_ROLE_NAME)
             if role and role not in message.author.roles:
                 try:
                     await message.author.add_roles(role)
                     await message.channel.send(f"🎉 Congratulations {message.author.mention}, you've earned the **{ACTIVE_MEMBER_ROLE_NAME}** role for being active!")
-                    xp_data[user_id_str]['xp'] = 0 # Reset XP
+                    xp_data[user_id_str]['xp'] = 0
                 except discord.Forbidden:
                     print(f"Could not assign Active Member role to {message.author.name}")
 
-    # Process prefix commands
     await bot.process_commands(message)
 
 
-# --- CORE LOGIC FUNCTIONS (to avoid repeating code) ---
+# --- CORE LOGIC FUNCTIONS ---
 
 async def send_verify_logic(ctx_or_interaction):
-    """Core logic for sending the verification message."""
     channel = bot.get_channel(VERIFY_CHANNEL_ID)
     if not channel:
         response_message = "❌ Verify channel not found!"
@@ -290,7 +295,6 @@ async def send_verify_logic(ctx_or_interaction):
             await ctx_or_interaction.send(response_message)
         return
 
-    # Clean up old bot messages
     async for message in channel.history(limit=10):
         if message.author == bot.user:
             await message.delete()
@@ -311,7 +315,6 @@ async def send_verify_logic(ctx_or_interaction):
 
 
 async def send_services_logic(ctx_or_interaction):
-    """Core logic for sending the services message."""
     channel = bot.get_channel(SERVICE_CHANNEL_ID)
     if not channel:
         response_message = "❌ Service channel not found or bot lacks permissions!"
@@ -321,7 +324,6 @@ async def send_services_logic(ctx_or_interaction):
             await ctx_or_interaction.send(response_message)
         return
 
-    # Clean up old bot messages
     async for message in channel.history(limit=10):
         if message.author == bot.user:
             await message.delete()
@@ -342,17 +344,14 @@ async def send_services_logic(ctx_or_interaction):
 
 # --- COMMANDS (Slash and Prefix) ---
 
-# Keeping one prefix command as an example
 @bot.command(name="ping")
 async def ping(ctx):
-    """Checks the bot's latency."""
     await ctx.send(f"🏓 Pong! Latency: {round(bot.latency * 1000)}ms")
 
 @bot.slash_command(name="ping", description="Checks the bot's latency.", guild_ids=[GUILD_ID])
 async def ping_slash(ctx: discord.ApplicationContext):
     await ctx.respond(f"🏓 Pong! Latency: {round(bot.latency * 1000)}ms", ephemeral=True)
 
-# --- Admin Commands ---
 @bot.slash_command(name="sendverify", description="Sends the verification panel to the verify channel.", guild_ids=[GUILD_ID])
 @commands.has_permissions(administrator=True)
 async def send_verify_slash(ctx: discord.ApplicationContext):
@@ -363,7 +362,6 @@ async def send_verify_slash(ctx: discord.ApplicationContext):
 @commands.has_permissions(administrator=True)
 async def send_verify_prefix(ctx: commands.Context):
     await send_verify_logic(ctx)
-
 
 @bot.slash_command(name="sendservices", description="Sends the service role panel to the service channel.", guild_ids=[GUILD_ID])
 @commands.has_permissions(administrator=True)
