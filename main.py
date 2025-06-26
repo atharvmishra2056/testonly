@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ui import View, Button, Select  # Added this line for View, Button, Select
+from discord.ui import View, Button, Select
 import os
 from flask import Flask
 from threading import Thread
@@ -37,7 +37,7 @@ def keep_alive():
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(command_prefix=["/", "wolf "], intents=intents)  # Added "wolf " prefix
 
 # Store CAPTCHA and XP data
 captcha_sessions = {}
@@ -158,9 +158,56 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-@bot.slash_command(name="createrole", description="Create a custom role (Mods only)", guild_ids=[GUILD_ID])
+# Prefix commands with "wolf"
+@bot.command()
+async def pingbot(ctx):
+    await ctx.send("Bot is active! 🏓")
+
+@bot.command()
 @commands.has_role(MOD_ROLE_NAME)
 async def createrole(ctx, name: str, color: str = "0x000000"):
+    try:
+        color_int = int(color, 16)
+        role = await ctx.guild.create_role(name=name, color=discord.Color(color_int))
+        await ctx.send(f"Created {role.name} with color {color}!")
+    except ValueError:
+        await ctx.send("Invalid hex color! Use 0xRRGGBB.")
+    except Exception as e:
+        await ctx.send(f"Error: {e}")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def sendverify(ctx):
+    channel = bot.get_channel(VERIFY_CHANNEL_ID)
+    if channel:
+        async for message in channel.history(limit=10):
+            if message.author == bot.user:
+                await message.delete()
+        embed = discord.Embed(title="✅ Server Verification", description="Welcome! Click to verify and join KuzzMarket.", color=discord.Color.green())
+        embed.set_footer(text="KuzzMarket - Powered by KuzzBot")
+        await channel.send(embed=embed, view=VerifyView())
+        await ctx.send("Verification message sent!")
+    else:
+        await ctx.send("Verify channel not found!")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def clearverify(ctx):
+    channel = bot.get_channel(VERIFY_CHANNEL_ID)
+    if channel:
+        count = 0
+        async for message in channel.history(limit=100):
+            if message.author == bot.user:
+                await message.delete()
+                count += 1
+        await ctx.send(f"Cleared {count} messages!")
+    else:
+        await ctx.send("Verify channel not found!")
+
+# Keep slash commands as they are
+@bot.slash_command(name="createrole", description="Create a custom role (Mods only)", guild_ids=[GUILD_ID])
+@commands.has_role(MOD_ROLE_NAME)
+async def createrole_slash(ctx, name: str, color: str = "0x000000"):
     try:
         color_int = int(color, 16)
         role = await ctx.guild.create_role(name=name, color=discord.Color(color_int))
@@ -208,10 +255,6 @@ async def clear_verify_channel(ctx):
         await ctx.followup.send(f"Cleared {count} messages!", ephemeral=True)
     else:
         await ctx.followup.send("Verify channel not found!", ephemeral=True)
-
-@bot.slash_command(name="pingbot", description="Keep bot active", guild_ids=[GUILD_ID])
-async def pingbot(ctx):
-    await ctx.respond("Bot is active! 🏓", ephemeral=True)
 
 # Run bot
 try:
