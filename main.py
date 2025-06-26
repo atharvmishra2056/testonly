@@ -209,12 +209,11 @@ async def clearverify(ctx):
 
 # Custom Role Button Command with Wizard Approach
 class CustomRoleView(View):
-    def __init__(self, ctx, step=1, data=None, message=None):
+    def __init__(self, ctx, step=1, data=None):
         super().__init__(timeout=300)
         self.ctx = ctx
         self.step = step
         self.data = data or {}
-        self.message = message
         self.update_items()
 
     def update_items(self):
@@ -239,14 +238,9 @@ class CustomRoleView(View):
             prompt += "Click 'Confirm' to finish or 'Cancel' to abort."
             self.add_item(Button(label="Confirm", style=discord.ButtonStyle.green, custom_id="confirm"))
             self.add_item(Button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel"))
-        if not self.message:
-            self.message = await ctx.send(prompt, view=self)
 
     async def on_timeout(self):
-        if self.message:
-            await self.message.edit(content="Timeout! Please start again with `wolf customrole`.", view=None)
-        else:
-            await self.ctx.send("Timeout! Please start again with `wolf customrole`.", delete_after=5)
+        await self.ctx.send("Timeout! Please start again with `wolf customrole`.", delete_after=5)
 
     async def interaction_check(self, interaction):
         return interaction.user == self.ctx.author
@@ -264,7 +258,7 @@ class CustomRoleView(View):
             await msg.delete()
             self.step = 2
             self.update_items()
-            await self.message.edit(content=f"Step 2: Enter message and click 'Next'.", view=self)
+            await interaction.message.edit(content=f"Step 2: Enter message and click 'Next'.", view=self)
         except asyncio.TimeoutError:
             await interaction.followup.send("Timeout! Please start again.", ephemeral=True)
 
@@ -278,7 +272,7 @@ class CustomRoleView(View):
             await msg.delete()
             self.step = 3
             self.update_items()
-            await self.message.edit(content=f"Step 3: Enter channel ID and click 'Next'.", view=self)
+            await interaction.message.edit(content=f"Step 3: Enter channel ID and click 'Next'.", view=self)
         except asyncio.TimeoutError:
             await interaction.followup.send("Timeout! Please start again.", ephemeral=True)
 
@@ -292,7 +286,7 @@ class CustomRoleView(View):
             await msg.delete()
             self.step = 4
             self.update_items()
-            await self.message.edit(content=f"Step 4: Enter button label and click 'Next'.", view=self)
+            await interaction.message.edit(content=f"Step 4: Enter button label and click 'Next'.", view=self)
         except (asyncio.TimeoutError, ValueError):
             await interaction.followup.send("Timeout or invalid input! Please start again.", ephemeral=True)
 
@@ -306,7 +300,7 @@ class CustomRoleView(View):
             await msg.delete()
             self.step = 5
             self.update_items()
-            await self.message.edit(content=f"Step 5: Enter role ID and click 'Next'.", view=self)
+            await interaction.message.edit(content=f"Step 5: Enter role ID and click 'Next'.", view=self)
         except asyncio.TimeoutError:
             await interaction.followup.send("Timeout! Please start again.", ephemeral=True)
 
@@ -320,7 +314,7 @@ class CustomRoleView(View):
             await msg.delete()
             self.step = 6
             self.update_items()
-            await self.message.edit(content=f"Step 6: Click 'Confirm' to finish or 'Cancel' to abort.", view=self)
+            await interaction.message.edit(content=f"Step 6: Click 'Confirm' to finish or 'Cancel' to abort.", view=self)
         except (asyncio.TimeoutError, ValueError):
             await interaction.followup.send("Timeout or invalid input! Please start again.", ephemeral=True)
 
@@ -338,13 +332,13 @@ class CustomRoleView(View):
         msg = await channel.send(embed=embed, view=view)
         custom_roles[msg.id] = {"title": self.data["title"], "message": self.data["message"], "channel_id": self.data["channel_id"], "buttons": {custom_id: self.data["role_id"]}}
         await interaction.response.send_message("Role button created!", ephemeral=True)
-        await self.message.edit(content="Setup complete!", view=None)
+        await interaction.message.edit(content="Setup complete!", view=None)
         self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red, custom_id="cancel")
     async def cancel(self, button, interaction):
         await interaction.response.send_message("Cancelled!", ephemeral=True)
-        await self.message.edit(content="Setup cancelled!", view=None)
+        await interaction.message.edit(content="Setup cancelled!", view=None)
         self.stop()
 
 class CustomRoleSelect(Select):
@@ -368,7 +362,7 @@ class CustomRoleSelect(Select):
 @commands.has_permissions(administrator=True)
 async def customrole(ctx):
     view = CustomRoleView(ctx)
-    # Initial message is set in __init__
+    await ctx.send("Starting custom role setup. Enter title and click 'Next'.", view=view)
 
 @bot.event
 async def on_button_click(interaction):
