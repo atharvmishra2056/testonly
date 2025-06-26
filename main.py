@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ui import View, Button, Select
+from discord.ui import View, Button, Select, Modal, TextInput
 import os
 from flask import Flask
 from threading import Thread
@@ -37,12 +37,15 @@ def keep_alive():
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
-bot = commands.Bot(command_prefix=["/", "wolf "], intents=intents)  # Added "wolf " prefix
+bot = commands.Bot(command_prefix=["/", "wolf "], intents=intents)
 
 # Store CAPTCHA and XP data
 captcha_sessions = {}
 button_cooldowns = {}
 xp = {}
+
+# Store custom role button configurations
+custom_roles = {}  # {message_id: {"title": str, "message": str, "channel_id": int, "buttons": {custom_id: role_id}}}
 
 class VerifyView(View):
     def __init__(self):
@@ -146,7 +149,7 @@ async def on_message(message):
             role = await message.guild.create_role(name="Active Member", color=discord.Color.gold())
         if role and role not in message.author.roles:
             await message.author.add_roles(role)
-            await message.channel.send(f"{member.mention} is now an Active Member!")
+            await message.channel.send(f"{message.author.mention} is now an Active Member!")
         xp[user_id] = 0
 
     # Auto-Moderation
@@ -204,7 +207,110 @@ async def clearverify(ctx):
     else:
         await ctx.send("Verify channel not found!")
 
-# Keep slash commands as they are
+# Custom Role Button Command with Select Menu
+class CustomRoleSelect(Select):
+    def __init__(self, action):
+        options = [discord.SelectOption(label=config["title"], value=str(msg_id), description=config["message"][:50]) for msg_id, config in custom_roles.items()]
+        super().__init__(placeholder=f"Select a {action} role message...", min_values=1, max_values=1, options=options)
+        self.action = action
+
+    async def callback(self, interaction):
+        msg_id = int(self.values[0])
+        if self.action == "edit":
+            await interaction.response.send_modal(CustomRoleModal("edit", msg_id))
+        elif self.action == "remove":
+            if msg_id in custom_roles:
+                msg = await bot.get_channel(custom_roles[msg_id]["channel_id"]).fetch_message(msg_id)
+                await msg.delete()
+                del custom_roles[msg_id]
+                await interaction.response.send_message("Role message removed!", ephemeral=True)
+
+class CustomRoleModal(Modal, title="Custom Role Setup"):
+    title_input = TextInput(label="Title", placeholder="Enter embed title", required=True)
+    message_input = TextInput(label="Message", placeholder="Enter message content", required=True, style=discord.TextStyle.paragraph)
+    channel_input = TextInput(label="Channel ID", placeholder="Enter channel ID", required=True)
+    button_label = TextInput(label="Button Label", placeholder="Enter button label", required=True)
+    role_id = TextInput(label="Role ID", placeholder="Enter role ID", required=True)
+
+    def __init__(self, action, msg_id=None):
+        super().__init__(title=f"Custom Role - {action}")
+        self.action = action
+        self.msg_id = msg_id
+        if msg_id and msg_id in custom_roles:
+            self.title_input.default = custom_roles[msg_id]["title"]
+            self.message_input.default = custom_roles[msg_id]["message"]
+            self.channel_input.default = str(custom_roles[msg_id]["channel_id"])
+
+    async def on_submit(self, interaction):
+        title = self.title_input.value
+        message = self.message_input.value
+        channel_id = int(self.channel_input.value)
+        button_label = self.button_label.value
+        role_id = int(self.role_id.value)
+
+        channel = bot.get_channel(channel_id)
+        if not channel:
+            await interaction.response.send_message("Invalid channel ID!", ephemeral=True)
+            return
+
+        custom_id = f"custom_role_{random.randint(1000, 9999)}"
+        if self.action == "add":
+            view = discord.ui.View()
+            button = discord.ui.Button(label=button_label, custom_id=custom_id, style=discord.ButtonStyle.primary)
+            view.add_item(button)
+            embed = discord.Embed(title=title, description=message, color=discord.Color.blue())
+            msg = await channel.send(embed=embed, view=view)
+            custom_roles[msg.id] = {"title": title, "message": message, "channel_id": channel_id, "buttons": {custom_id: role_id}}
+            await interaction.response.send_message("Role button added!", ephemeral=True)
+        elif self.action == "edit":
+            if self.msg_id in custom_roles:
+                custom_roles[self.msg_id]["title"] = title
+                custom_roles[self.msg_id]["message"] = message
+                msg = await bot.get_channel(custom_roles[self.msg_id]["channel_id"]).fetch_message(self.msg_id)
+                await msg.edit(embed=discord.Embed(title=title, description=message, color=discord.Color.blue()))
+                await interaction.response.send_message("Role button edited!", ephemeral=True)
+            else:
+                await interaction.response.send_message("Message not found!", ephemeral=True)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def customrole(ctx):
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(label="Add", style=discord.ButtonStyle.green, custom_id="add_role"))
+    view.add_item(discord.ui.Button(label="Edit", style=discord.ButtonStyle.blurple, custom_id="edit_role"))
+    view.add_item(discord.ui.Button(label="Remove", style=discord.ButtonStyle.red, custom_id="remove_role"))
+    await ctx.send("Select an action:", view=view)
+
+    def check(interaction):
+        return interaction.user == ctx.author and interaction.message.id == view.message.id
+
+    try:
+        interaction = await bot.wait_for("button_click", check=check, timeout=60)
+        action = interaction.custom_id.split("_")[0]
+        if action in ["edit", "remove"] and custom_roles:
+            select = CustomRoleSelect(action)
+            view = discord.ui.View()
+            view.add_item(select)
+            await interaction.response.send_message(f"Select a {action} role message:", view=view, ephemeral=True)
+        else:
+            await interaction.response.send_modal(CustomRoleModal(action))
+    except asyncio.TimeoutError:
+        await ctx.send("Timeout! Please try again.", delete_after=5)
+
+@bot.event
+async def on_button_click(interaction):
+    custom_id = interaction.custom_id
+    for msg_id, config in custom_roles.items():
+        if custom_id in config["buttons"]:
+            role = interaction.guild.get_role(config["buttons"][custom_id])
+            if role and role not in interaction.user.roles:
+                await interaction.user.add_roles(role)
+                await interaction.response.send_message(f"Assigned {role.name} role!", ephemeral=True)
+            else:
+                await interaction.response.send_message("You already have this role or role not found!", ephemeral=True)
+            break
+
+# Keep slash commands
 @bot.slash_command(name="createrole", description="Create a custom role (Mods only)", guild_ids=[GUILD_ID])
 @commands.has_role(MOD_ROLE_NAME)
 async def createrole_slash(ctx, name: str, color: str = "0x000000"):
