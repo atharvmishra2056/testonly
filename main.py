@@ -10,8 +10,8 @@ import asyncio
 # --- CONFIGURATION ---
 GUILD_ID = 1377883327771574372  # Your Server ID
 VERIFY_CHANNEL_ID = 1377883328526680065  # Verify Channel ID
-LOG_CHANNEL_ID = 1377883329755611280  # Logs Channel ID (replace with actual ID)
-GENERAL_CHANNEL_ID = 1377883329503821841  # General Channel ID (replace with actual ID)
+LOG_CHANNEL_ID = 1377883329755611280  # Logs Channel ID 
+GENERAL_CHANNEL_ID = 1377883329503821841  # General Channel ID 
 MOD_ROLE_NAME = "Moderator"  # Mod role name
 MEMBER_ROLE_NAME = "KuzzMember"  # Member role name
 BAD_WORDS = ["Fuck", "Nigga"]  # Add more as needed
