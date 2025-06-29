@@ -16,7 +16,6 @@ VERIFY_CHANNEL_ID = 1377883328526680065  # Verify Channel ID
 LOG_CHANNEL_ID = 1377883329755611280    # Logs Channel ID
 WELCOME_CHANNEL_ID = 1387419489586380972 # Welcome Channel ID
 SERVICE_CHANNEL_ID = 1387386391800975390 # Service Channel ID
-# FIX: Restored the missing GENERAL_CHANNEL_ID. My apologies for removing it.
 GENERAL_CHANNEL_ID = 1377883329503821841 # General Channel ID
 
 MOD_ROLE_NAME = "Moderator"
@@ -41,7 +40,6 @@ SERVICE_ROLES = {
     "spotify":   ["Spotify",   "<:Spotify:1387754178478346343>", 1387756124165505065],
 }
 
-
 # --- KEEP ALIVE (FOR HOSTING SERVICES LIKE RENDER) ---
 app = Flask('')
 
@@ -56,7 +54,6 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-
 # --- BOT SETUP ---
 intents = discord.Intents.default()
 intents.members = True
@@ -68,8 +65,10 @@ bot = commands.Bot(command_prefix=["/", "wolf "], intents=intents)
 # consider using a database (like SQLite, PostgreSQL) for persistence.
 captcha_sessions = {}
 button_cooldowns = {}
-xp_data = {} # Stores {'user_id': {'xp': 10, 'last_message_time': ...}}
+xp_data = {}  # Stores {'user_id': {'xp': 10, 'last_message_time': ...}}
 
+# Auto role feature flag
+AUTO_ROLE_ENABLED = False
 
 # --- MODALS & VERIFICATION FLOW VIEWS ---
 
@@ -134,8 +133,6 @@ class CaptchaModal(Modal):
             await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True)
             print(f"Error during verification for {member.id}: {e}")
 
-# FIX: This new view is part of the solution to the "Unknown Interaction" error.
-# It separates showing the code from opening the input modal.
 class OpenCaptchaModalView(View):
     def __init__(self, user_id):
         super().__init__(timeout=CAPTCHA_TIMEOUT)
@@ -143,16 +140,13 @@ class OpenCaptchaModalView(View):
 
     @discord.ui.button(label="Enter Code", style=discord.ButtonStyle.blurple)
     async def open_modal_button(self, button: Button, interaction: discord.Interaction):
-        # This interaction is from the "Enter Code" button, so we can safely respond with a modal.
         modal = CaptchaModal(user_id=self.user_id)
         await interaction.response.send_modal(modal)
-        self.stop() # Stop this view once the modal is opened.
+        self.stop()
 
     async def on_timeout(self):
-        # Disable the button when the view times out.
         for item in self.children:
             item.disabled = True
-        # We can't easily edit the original message, but this prevents confusion.
 
 class VerifyView(View):
     def __init__(self):
@@ -171,8 +165,6 @@ class VerifyView(View):
         captcha_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         captcha_sessions[member.id] = captcha_code
         
-        # FIX: Reworked the verification flow to prevent the "Unknown Interaction" error.
-        # Step 1: Send a message with the code and a NEW button.
         embed = discord.Embed(
             title="Your CAPTCHA Code Is:",
             description=f"**{captcha_code}**",
@@ -180,8 +172,6 @@ class VerifyView(View):
         )
         embed.set_footer(text=f"Click 'Enter Code' below. You have {CAPTCHA_TIMEOUT} seconds.")
 
-        # Step 2: Respond with the embed and the view containing the "Enter Code" button.
-        # This is a single, valid response to the "Verify Now" click.
         await interaction.response.send_message(
             embed=embed,
             view=OpenCaptchaModalView(user_id=member.id),
@@ -225,14 +215,12 @@ class ServiceView(View):
             await member.add_roles(role)
             await interaction.followup.send(f"You've been given the **{role.name}** role!", ephemeral=True)
 
-
 # --- BOT EVENTS ---
 
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}!')
     await bot.change_presence(activity=discord.Game(name="KuzzMarket | /help"))
-    # Register persistent views on startup
     bot.add_view(VerifyView())
     bot.add_view(ServiceView())
     print("Persistent views registered.")
@@ -243,6 +231,18 @@ async def on_member_join(member):
     if channel:
         welcome_message = f"🎉🌟 **Welcome to KuzzMarket, {member.mention}!** 🌟🎉\nGet started by verifying yourself here: <#{VERIFY_CHANNEL_ID}>! 🚀😊"
         await channel.send(welcome_message)
+
+    if AUTO_ROLE_ENABLED:
+        guild = bot.get_guild(GUILD_ID)
+        role = discord.utils.get(guild.roles, name=MEMBER_ROLE_NAME)
+        if role and role not in member.roles:
+            try:
+                await member.add_roles(role)
+                welcome_channel = bot.get_channel(GENERAL_CHANNEL_ID)
+                if welcome_channel:
+                    await welcome_channel.send(f"🎉 Welcome {member.mention} to KuzzMarket! You have been automatically assigned the {role.name} role!")
+            except discord.Forbidden:
+                print(f"Could not assign {MEMBER_ROLE_NAME} role to {member.name} due to permissions.")
 
 @bot.event
 async def on_message(message):
@@ -282,7 +282,6 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-
 # --- CORE LOGIC FUNCTIONS ---
 
 async def send_verify_logic(ctx_or_interaction):
@@ -313,7 +312,6 @@ async def send_verify_logic(ctx_or_interaction):
     else:
         await ctx_or_interaction.send(response_message)
 
-
 async def send_services_logic(ctx_or_interaction):
     channel = bot.get_channel(SERVICE_CHANNEL_ID)
     if not channel:
@@ -340,7 +338,6 @@ async def send_services_logic(ctx_or_interaction):
         await ctx_or_interaction.followup.send(response_message, ephemeral=True)
     else:
         await ctx_or_interaction.send(response_message)
-
 
 # --- COMMANDS (Slash and Prefix) ---
 
@@ -374,6 +371,34 @@ async def send_services_slash(ctx: discord.ApplicationContext):
 async def send_services_prefix(ctx: commands.Context):
     await send_services_logic(ctx)
 
+# New commands for auto role feature
+@bot.command(name="ok")
+@commands.has_permissions(administrator=True)
+async def ok(ctx):
+    global AUTO_ROLE_ENABLED
+    AUTO_ROLE_ENABLED = True
+    await ctx.send("✅ Auto role feature enabled! New members will now automatically get the KuzzMember role.")
+
+@bot.command(name="nok")
+@commands.has_permissions(administrator=True)
+async def nok(ctx):
+    global AUTO_ROLE_ENABLED
+    AUTO_ROLE_ENABLED = False
+    await ctx.send("✅ Auto role feature disabled! New members will no longer get the KuzzMember role automatically.")
+
+@bot.slash_command(name="ok", description="Enable auto role for new members (Admins only)", guild_ids=[GUILD_ID])
+@commands.has_permissions(administrator=True)
+async def ok_slash(ctx: discord.ApplicationContext):
+    global AUTO_ROLE_ENABLED
+    AUTO_ROLE_ENABLED = True
+    await ctx.respond("✅ Auto role feature enabled! New members will now automatically get the KuzzMember role.", ephemeral=True)
+
+@bot.slash_command(name="nok", description="Disable auto role for new members (Admins only)", guild_ids=[GUILD_ID])
+@commands.has_permissions(administrator=True)
+async def nok_slash(ctx: discord.ApplicationContext):
+    global AUTO_ROLE_ENABLED
+    AUTO_ROLE_ENABLED = False
+    await ctx.respond("✅ Auto role feature disabled! New members will no longer get the KuzzMember role automatically.", ephemeral=True)
 
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
